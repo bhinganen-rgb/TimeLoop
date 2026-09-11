@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TIMELOOP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#1a0510;
+    --bg2:#2a0818;
+    --ink:#fff5e1;
+    --magenta:#ff3399;
+    --yellow:#ffdb1a;
+    --teal:#00e5c1;
+    --dim:#8a5a70;
+    --line:#3a1226;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;overflow-x:hidden}
+  body{
+    min-height:100vh;
+    background:
+      linear-gradient(180deg, rgba(255,51,153,0.02) 0px, transparent 2px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 0px, transparent 1px),
+      radial-gradient(ellipse at top, #2a0818 0%, #1a0510 60%, #0a0206 100%);
+    background-size: 100% 3px, 3px 100%, 100% 100%;
+  }
+  a{color:var(--teal);text-decoration:none}
+  /* Topbar */
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 28px;
+    background:rgba(10,2,6,0.85);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+  }
+  .wordmark{font-family:'Orbitron',sans-serif;font-weight:900;font-size:20px;letter-spacing:6px;color:var(--magenta);text-shadow:0 0 8px rgba(255,51,153,0.6)}
+  .top-clock{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--yellow);letter-spacing:2px}
+  .btn{
+    font-family:'Rajdhani',sans-serif;font-weight:700;letter-spacing:2px;
+    background:var(--magenta);color:#0a0206;border:0;padding:10px 20px;
+    cursor:pointer;text-transform:uppercase;font-size:13px;
+    transition:all .15s;
+  }
+  .btn:hover{background:var(--yellow);color:#0a0206}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn-lg{padding:16px 32px;font-size:15px}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn-ghost:hover{background:var(--line);color:var(--ink)}
+  /* Hero */
+  .hero{padding:60px 28px 40px;text-align:center}
+  .subtitle{font-family:'Rajdhani',sans-serif;font-weight:500;letter-spacing:8px;text-transform:uppercase;color:var(--dim);font-size:14px;margin-top:14px}
+  .clock{
+    font-family:'JetBrains Mono',monospace;font-weight:700;
+    font-size:clamp(64px,14vw,180px);
+    color:var(--magenta);
+    letter-spacing:.05em;
+    text-shadow:
+      0 0 10px rgba(255,51,153,0.8),
+      0 0 30px rgba(255,51,153,0.5),
+      0 0 60px rgba(255,51,153,0.3);
+    line-height:1;
+    display:inline-block;
+    padding:0 12px;
+  }
+  .clock .tick{color:var(--yellow);text-shadow:0 0 10px rgba(255,219,26,0.7);animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.3}}
+  .slot-badge{margin-top:20px;display:inline-block;padding:6px 16px;border:1px solid var(--teal);color:var(--teal);font-family:'Rajdhani',sans-serif;letter-spacing:3px;font-size:12px;text-transform:uppercase}
+  /* Bars */
+  .bar{
+    height:4px;
+    background:linear-gradient(90deg, var(--magenta) 0%, var(--yellow) 100%);
+    margin:36px 0 20px;
+    box-shadow:0 0 20px rgba(255,51,153,0.4);
+  }
+  .section{padding:0 28px;max-width:1200px;margin:0 auto}
+  .section-title{font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;letter-spacing:6px;color:var(--ink);text-transform:uppercase}
+  .label{font-family:'Rajdhani',sans-serif;font-weight:600;letter-spacing:3px;text-transform:uppercase;font-size:12px;color:var(--dim);margin-bottom:8px;display:block}
+  /* Current signal */
+  .signal-panel{
+    background:rgba(255,51,153,0.05);
+    border:1px solid var(--magenta);
+    padding:28px;
+    margin:20px 0;
+    position:relative;
+  }
+  .signal-panel::before{
+    content:"CURRENT SIGNAL";
+    position:absolute;top:-10px;left:20px;
+    background:var(--bg);
+    padding:0 10px;
+    font-family:'Orbitron',sans-serif;font-weight:700;font-size:11px;letter-spacing:4px;color:var(--magenta);
+  }
+  .signal-text{
+    font-family:'Rajdhani',sans-serif;font-weight:700;font-size:28px;color:var(--yellow);
+    text-shadow:0 0 12px rgba(255,219,26,0.4);
+    word-break:break-word;
+  }
+  .signal-owner{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--dim);margin-top:8px}
+  .signal-empty{font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--dim)}
+  /* Reserve form */
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  @media (max-width:720px){.grid-2,.grid-3{grid-template-columns:1fr}}
+  .field{margin-bottom:16px}
+  input,select,textarea{
+    width:100%;background:var(--bg2);color:var(--ink);
+    border:1px solid var(--line);padding:12px 14px;
+    font-family:'JetBrains Mono',monospace;font-size:14px;
+    outline:none;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--magenta);box-shadow:0 0 0 2px rgba(255,51,153,0.2)}
+  textarea{resize:vertical;min-height:72px;font-family:'Inter',sans-serif}
+  .fee-note{font-family:'JetBrains Mono',monospace;color:var(--teal);font-size:12px;margin-top:8px}
+  /* Reservations list */
+  .card{
+    background:rgba(0,229,193,0.03);
+    border:1px solid var(--line);
+    padding:18px;
+    margin-bottom:12px;
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
+    flex-wrap:wrap;
+  }
+  .card.live{border-color:var(--yellow);box-shadow:0 0 24px rgba(255,219,26,0.3)}
+  .card-slot{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:22px;color:var(--magenta);min-width:96px}
+  .card-msg{flex:1;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:16px;color:var(--ink);min-width:200px}
+  .card-week{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim);letter-spacing:2px}
+  .live-dot{display:inline-block;width:8px;height:8px;background:var(--yellow);border-radius:50%;margin-right:6px;animation:blink 1s infinite;box-shadow:0 0 8px var(--yellow)}
+  .status-cancelled{color:var(--dim);text-decoration:line-through}
+  /* Ticker */
+  .ticker{
+    background:var(--bg2);
+    border:1px solid var(--line);
+    padding:12px 16px;
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--teal);
+    overflow:hidden;white-space:nowrap;
+  }
+  .ticker span{margin-right:36px}
+  /* Empty grid decoration */
+  .empty-grid{
+    display:grid;grid-template-columns:repeat(24,1fr);gap:2px;
+    padding:20px 0;
+  }
+  .empty-grid > div{
+    aspect-ratio:1;
+    background:rgba(255,51,153,0.04);
+    border:1px solid rgba(255,51,153,0.08);
+  }
+  .empty-grid > div.on{background:var(--magenta);box-shadow:0 0 6px var(--magenta)}
+  /* Toast */
+  #toasts{position:fixed;bottom:24px;right:24px;z-index:100;display:flex;flex-direction:column;gap:8px}
+  .toast{
+    background:var(--bg2);border-left:4px solid var(--magenta);
+    padding:12px 18px;color:var(--ink);
+    font-family:'Rajdhani',sans-serif;font-weight:600;letter-spacing:1px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.5);
+    min-width:260px;
+  }
+  .toast.ok{border-left-color:var(--teal)}
+  .toast.err{border-left-color:var(--yellow)}
+  .footer{text-align:center;padding:40px 20px 24px;color:var(--dim);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:3px}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="wordmark">TIMELOOP</div>
+    <div class="top-clock" id="topClock">--:--:-- UTC</div>
+    <button class="btn" id="connectBtn">CONNECT</button>
+  </div>
+
+  <div class="hero">
+    <div class="clock" id="bigClock">00<span class="tick">:</span>00<span class="tick">:</span>00</div>
+    <div class="subtitle">reserve your minute of the loop</div>
+    <div class="slot-badge" id="slotBadge">SLOT 0000 / WEEK 0000</div>
+  </div>
+
+  <div class="section">
+    <div class="signal-panel">
+      <div id="signalContent" class="signal-empty">// slot unreserved</div>
+      <div id="signalOwner" class="signal-owner"></div>
+    </div>
+
+    <div class="ticker" id="ticker"><span>// scanning upcoming slots...</span></div>
+
+    <div class="bar"></div>
+    <div class="section-title">RESERVE A SLOT</div>
+
+    <div style="padding:24px 0">
+      <div class="grid-3">
+        <div class="field">
+          <label class="label">Hour (0-23 UTC)</label>
+          <input type="number" id="hourInput" min="0" max="23" value="12" />
+        </div>
+        <div class="field">
+          <label class="label">Minute (0-59)</label>
+          <input type="number" id="minInput" min="0" max="59" value="0" />
+        </div>
+        <div class="field">
+          <label class="label">Week</label>
+          <select id="weekSelect">
+            <option value="0">This week</option>
+            <option value="1" selected>Next week</option>
+            <option value="2">+2 weeks</option>
+            <option value="3">+3 weeks</option>
+            <option value="4">+4 weeks</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label">Message (max 280 chars)</label>
+        <textarea id="msgInput" maxlength="280" placeholder="signal to broadcast during your minute..."></textarea>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div class="fee-note" id="feeNote">fee: 0.002 BOT</div>
+        <button class="btn btn-lg" id="reserveBtn" disabled>RESERVE SLOT</button>
+      </div>
+    </div>
+
+    <div class="bar"></div>
+    <div class="section-title">MY RESERVATIONS</div>
+    <div id="myList" style="padding:20px 0">
+      <div class="signal-empty" style="font-family:'JetBrains Mono',monospace">// connect wallet to view</div>
+    </div>
+
+    <div class="bar"></div>
+    <div class="section-title">SLOT MAP // 24H</div>
+    <div class="empty-grid" id="emptyGrid"></div>
+  </div>
+
+  <div class="footer">BOT CHAIN // TESTNET 968 // TIMELOOP.PROTOCOL</div>
+  <div id="toasts"></div>
+
+<script>
+  // ==== CONFIG ====
+  const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000"; // <-- paste after deploy
+  const TESTNET = {
+    chainId: "0x3C8",
+    chainName: "BOT Chain Testnet",
+    nativeCurrency: { name: "BOT", symbol: "BOT", decimals: 18 },
+    rpcUrls: ["https://rpc.bohr.life"],
+    blockExplorerUrls: []
+  };
+  // Mainnet swap:
+  // const MAINNET = { chainId:"0x2A5", chainName:"BOT Chain", nativeCurrency:{name:"BOT",symbol:"BOT",decimals:18}, rpcUrls:["https://rpc.botchain.ai"], blockExplorerUrls:[] };
+  const TARGET = TESTNET;
+
+  const ABI = [
+    "function slotFee() view returns (uint256)",
+    "function reserveSlot(uint16,uint16,string) payable returns (uint256)",
+    "function updateMessage(uint256,string)",
+    "function cancelReservation(uint256)",
+    "function getReservation(uint256) view returns (address,uint16,uint16,string,uint256,uint8)",
+    "function getCurrentSlot() view returns (uint16)",
+    "function getCurrentWeek() view returns (uint16)",
+    "function getReservationForSlot(uint16,uint16) view returns (uint256)",
+    "function getMessageForNow() view returns (string,address,bool)",
+    "function getReservationsByOwner(address) view returns (uint256[])",
+    "event SlotReserved(uint256 indexed,address indexed,uint16,uint16,uint256)"
+  ];
+
+  let provider, signer, contract, userAddr;
+
+  // ==== TOASTS ====
+  function toast(msg, kind="") {
+    const el = document.createElement("div");
+    el.className = "toast " + kind;
+    el.textContent = msg;
+    document.getElementById("toasts").appendChild(el);
+    setTimeout(()=>el.remove(), 4200);
+  }
+
+  // ==== CLOCK ====
+  const pad = n => String(n).padStart(2,"0");
+  function currentSlotUTC(){
+    const d = new Date();
+    return d.getUTCHours()*60 + d.getUTCMinutes();
+  }
+  function currentWeekUTC(){
+    return Math.floor(Date.now()/1000/604800);
+  }
+  function tick(){
+    const d = new Date();
+    const h=pad(d.getUTCHours()), m=pad(d.getUTCMinutes()), s=pad(d.getUTCSeconds());
+    document.getElementById("bigClock").innerHTML = `${h}<span class="tick">:</span>${m}<span class="tick">:</span>${s}`;
+    document.getElementById("topClock").textContent = `${h}:${m}:${s} UTC`;
+    document.getElementById("slotBadge").textContent = `SLOT ${pad(currentSlotUTC()).padStart(4,'0')} / WEEK ${currentWeekUTC()}`;
+    // refresh signal each new minute
+    if (s === "00") refreshSignal();
+    // paint slot map dot every second (highlight current)
+    paintEmptyGrid();
+  }
+  setInterval(tick, 1000); tick();
+
+  // ==== EMPTY GRID (24h decorative) ====
+  function paintEmptyGrid(){
+    const grid = document.getElementById("emptyGrid");
+    if (!grid.dataset.built) {
+      for (let i=0;i<24;i++) { const c=document.createElement("div"); grid.appendChild(c); }
+      grid.dataset.built = "1";
+    }
+    const nowH = new Date().getUTCHours();
+    [...grid.children].forEach((c,i)=>c.classList.toggle("on", i===nowH));
+  }
+
+  // ==== CONNECT ====
+  async function connect(){
+    if (!window.ethereum) return toast("Install MetaMask", "err");
+    try {
+      const accounts = await window.ethereum.request({ method:"eth_requestAccounts" });
+      const chain = await window.ethereum.request({ method:"eth_chainId" });
+      if (chain !== TARGET.chainId) {
+        try {
+          await window.ethereum.request({ method:"wallet_switchEthereumChain", params:[{chainId:TARGET.chainId}] });
+        } catch(e) {
+          if (e.code === 4902) {
+            await window.ethereum.request({ method:"wallet_addEthereumChain", params:[TARGET] });
+          } else throw e;
+        }
+      }
+      provider = new ethers.BrowserProvider(window.ethereum);
+      signer = await provider.getSigner();
+      userAddr = accounts[0];
+      contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+      document.getElementById("connectBtn").textContent = userAddr.slice(0,6)+"…"+userAddr.slice(-4);
+      document.getElementById("reserveBtn").disabled = false;
+      toast("Connected", "ok");
+      await loadFee();
+      await refreshSignal();
+      await loadMine();
+      await scanUpcoming();
+    } catch(e) { console.error(e); toast(e.message||"connect failed","err"); }
+  }
+  document.getElementById("connectBtn").addEventListener("click", connect);
+
+  // Read-only provider fallback for initial view
+  async function readOnly(){
+    try {
+      const p = new ethers.JsonRpcProvider(TARGET.rpcUrls[0]);
+      return new ethers.Contract(CONTRACT_ADDRESS, ABI, p);
+    } catch(e){ return null; }
+  }
+
+  async function loadFee(){
+    try{
+      const c = contract || await readOnly();
+      const fee = await c.slotFee();
+      document.getElementById("feeNote").textContent = "fee: " + ethers.formatEther(fee) + " BOT";
+    }catch(e){}
+  }
+
+  async function refreshSignal(){
+    try{
+      const c = contract || await readOnly();
+      if (!c) return;
+      const [msg, owner, exists] = await c.getMessageForNow();
+      const el = document.getElementById("signalContent");
+      const ow = document.getElementById("signalOwner");
+      if (exists && msg) {
+        el.className = "signal-text";
+        el.textContent = msg;
+        ow.textContent = "// broadcast by " + owner.slice(0,6)+"…"+owner.slice(-4);
+      } else {
+        el.className = "signal-empty";
+        el.textContent = "// slot unreserved";
+        ow.textContent = "";
+      }
+    }catch(e){ console.warn("signal", e.message); }
+  }
+
+  async function scanUpcoming(){
+    try{
+      const c = contract || await readOnly();
+      if (!c) return;
+      const wk = currentWeekUTC();
+      const nowSlot = currentSlotUTC();
+      const parts = [];
+      for (let i=1;i<=5;i++){
+        const s = (nowSlot + i) % 1440;
+        const id = await c.getReservationForSlot(s, wk);
+        if (Number(id) > 0) {
+          const r = await c.getReservation(id);
+          const h = Math.floor(s/60), m = s%60;
+          parts.push(`[${pad(h)}:${pad(m)}] ${r[3].slice(0,40)}`);
+        }
+      }
+      document.getElementById("ticker").innerHTML = parts.length
+        ? parts.map(t=>`<span>${t}</span>`).join("")
+        : "<span>// next 5 minutes: silence</span>";
+    }catch(e){}
+  }
+  setInterval(scanUpcoming, 30000);
+
+  async function loadMine(){
+    if (!contract || !userAddr) return;
+    try{
+      const ids = await contract.getReservationsByOwner(userAddr);
+      const list = document.getElementById("myList");
+      if (!ids.length) { list.innerHTML = '<div class="signal-empty" style="font-family:\'JetBrains Mono\',monospace">// no reservations yet</div>'; return; }
+      list.innerHTML = "";
+      const nowSlot = currentSlotUTC();
+      const nowWk = currentWeekUTC();
+      for (const id of ids) {
+        const r = await contract.getReservation(id);
+        const [owner, slotIdx, weekIdx, message, reservedAt, status] = r;
+        const s = Number(slotIdx), w = Number(weekIdx);
+        const h = Math.floor(s/60), m = s%60;
+        const isLive = (s === nowSlot && w === nowWk && Number(status) === 0);
+        const wkDelta = w - nowWk;
+        const wkLabel = wkDelta===0?"this week":wkDelta===1?"next week":wkDelta>0?`+${wkDelta} weeks`:"past";
+        const statusLabel = ["ACTIVE","EXPIRED","CANCELLED"][Number(status)];
+        const canCancel = Number(status)===0 && w > nowWk;
+        const card = document.createElement("div");
+        card.className = "card" + (isLive?" live":"") + (Number(status)!==0?" status-cancelled":"");
+        card.innerHTML = `
+          <div class="card-slot">${isLive?'<span class="live-dot"></span>':""}${pad(h)}:${pad(m)}</div>
+          <div class="card-msg">${escapeHtml(message)}</div>
+          <div class="card-week">WK ${w} · ${wkLabel} · ${statusLabel}</div>
+          <div style="display:flex;gap:8px">
+            ${Number(status)===0?`<button class="btn btn-ghost" data-edit="${id}">EDIT</button>`:""}
+            ${canCancel?`<button class="btn btn-ghost" data-cancel="${id}">CANCEL</button>`:""}
+          </div>`;
+        list.appendChild(card);
+      }
+      list.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => editRes(b.dataset.edit));
+      list.querySelectorAll("[data-cancel]").forEach(b => b.onclick = () => cancelRes(b.dataset.cancel));
+    }catch(e){ console.error(e); toast("load failed","err"); }
+  }
+
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  async function editRes(id){
+    const m = prompt("New message:");
+    if (!m) return;
+    try{
+      const tx = await contract.updateMessage(id, m);
+      toast("updating...", "");
+      await tx.wait();
+      toast("updated", "ok");
+      await loadMine(); await refreshSignal();
+    }catch(e){ toast(e.reason||e.message||"failed","err"); }
+  }
+
+  async function cancelRes(id){
+    if (!confirm("Cancel reservation? Refund minus cancel fee.")) return;
+    try{
+      const tx = await contract.cancelReservation(id);
+      toast("cancelling...", "");
+      await tx.wait();
+      toast("cancelled", "ok");
+      await loadMine();
+    }catch(e){ toast(e.reason||e.message||"failed","err"); }
+  }
+
+  document.getElementById("reserveBtn").addEventListener("click", async () => {
+    if (!contract) return toast("connect first","err");
+    const h = parseInt(document.getElementById("hourInput").value);
+    const m = parseInt(document.getElementById("minInput").value);
+    const wOff = parseInt(document.getElementById("weekSelect").value);
+    const msg = document.getElementById("msgInput").value.trim();
+    if (isNaN(h)||h<0||h>23||isNaN(m)||m<0||m>59) return toast("bad time","err");
+    if (!msg) return toast("message required","err");
+    const slotIdx = h*60 + m;
+    const weekIdx = currentWeekUTC() + wOff;
+    try{
+      const fee = await contract.slotFee();
+      const tx = await contract.reserveSlot(slotIdx, weekIdx, msg, { value: fee });
+      toast("reserving slot "+pad(h)+":"+pad(m)+"...", "");
+      await tx.wait();
+      toast("reserved", "ok");
+      document.getElementById("msgInput").value = "";
+      await loadMine(); await refreshSignal(); await scanUpcoming();
+    }catch(e){ toast(e.reason||e.shortMessage||e.message||"failed","err"); }
+  });
+
+  // Wallet events
+  if (window.ethereum) {
+    window.ethereum.on("accountsChanged", () => location.reload());
+    window.ethereum.on("chainChanged", () => location.reload());
+  }
+
+  // Initial read-only load
+  (async () => {
+    await loadFee();
+    await refreshSignal();
+    await scanUpcoming();
+  })();
+</script>
+</body>
+</html>
